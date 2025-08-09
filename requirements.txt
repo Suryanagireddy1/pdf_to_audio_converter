@@ -2,5 +2,6 @@ flask
 pdfplumber
 PyPDF2
 gTTS
+gunicorn
 pydub   # If you manipulate audio files
 werkzeug # For file uploads (already included in Flask, but safe to list)
