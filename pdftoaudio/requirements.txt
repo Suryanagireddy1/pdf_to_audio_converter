@@ -1,4 +1,5 @@
 flask
+pdfplumber
 PyPDF2
 gTTS
 pydub   # If you manipulate audio files
