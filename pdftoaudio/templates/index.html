@@ -3,21 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF to Audio Converter</title>
+
+    <title>PDF to Audio Converter | Free Online Tool</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Convert PDF to audio (MP3) instantly online for free. Listen to your PDFs in seconds without installing software. Works on all devices.">
+    <meta name="keywords" content="PDF to Audio, Convert PDF to MP3, Free PDF Reader, PDF to Speech, Text to Speech PDF, Audiobook Generator">
+    <meta name="robots" content="index, follow">
+
+    <!-- Google Search Console Verification (replace CONTENT with your code from Google) -->
+    <!-- <meta name="google-site-verification" content="YOUR_VERIFICATION_CODE"> -->
+
+    <!-- Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 </head>
 <body>
     <div class="container animate__animated animate__fadeIn">
         <h1>📄 PDF to 🎵 Audio Converter</h1>
+
         {% if error %}
             <p class="error">{{ error }}</p>
         {% endif %}
+
         <form action="/" method="POST" enctype="multipart/form-data">
             <div class="upload-box">
                 <input type="file" name="pdf_file" accept=".pdf" required>
             </div>
-            <button type="submit" class="btn animate__animated animate__pulse animate__infinite">Convert & Download</button>
+            <button type="submit" class="btn animate__animated animate__pulse animate__infinite">
+                Convert & Download
+            </button>
         </form>
     </div>
 </body>
