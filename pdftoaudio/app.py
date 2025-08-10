@@ -1,52 +1,46 @@
-from flask import Flask, render_template, request, send_file
-import pdfplumber
-from gtts import gTTS
 import os
 import uuid
+from flask import Flask, request, render_template, send_file
+import pyttsx3
+import pdfplumber
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
-AUDIO_FOLDER = "audio"
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(AUDIO_FOLDER, exist_ok=True)
+AUDIO_DIR = os.path.join(os.path.dirname(__file__), "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        if "pdf_file" not in request.files:
-            return render_template("index.html", error="No file uploaded")
+        if "pdf" not in request.files:
+            return "No file uploaded", 400
+        
+        pdf_file = request.files["pdf"]
+        text_content = ""
 
-        pdf_file = request.files["pdf_file"]
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                text_content += page.extract_text() or ""
 
-        if pdf_file.filename == "":
-            return render_template("index.html", error="Please select a PDF file.")
+        if not text_content.strip():
+            return "No text found in PDF", 400
 
-        if pdf_file and pdf_file.filename.lower().endswith(".pdf"):
-            file_path = os.path.join(UPLOAD_FOLDER, pdf_file.filename)
-            pdf_file.save(file_path)
+        # Generate unique audio file path
+        audio_filename = f"{uuid.uuid4()}.mp3"
+        audio_path = os.path.join(AUDIO_DIR, audio_filename)
 
-            # Extract text
-            text = ""
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
+        # Convert text to audio
+        engine = pyttsx3.init()
+        engine.save_to_file(text_content, audio_path)
+        engine.runAndWait()
 
-            if not text.strip():
-                return render_template("index.html", error="No readable text found in PDF.")
+        # Ensure file exists before sending
+        if not os.path.exists(audio_path):
+            return "Audio generation failed", 500
 
-            # Convert text to audio
-            audio_filename = f"{uuid.uuid4()}.mp3"
-            audio_path = os.path.join(AUDIO_FOLDER, audio_filename)
-            tts = gTTS(text)
-            tts.save(audio_path)
-
-            return send_file(audio_path, as_attachment=True, download_name="output.mp3")
-
-        return render_template("index.html", error="Only PDF files are allowed.")
+        return send_file(audio_path, as_attachment=True, download_name="output.mp3")
 
     return render_template("index.html")
-
 
 if __name__ == "__main__":
     app.run(debug=True)
