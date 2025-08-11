@@ -1,46 +1,114 @@
+import io
 import os
-import uuid
-from flask import Flask, request, render_template, send_file
-import pyttsx3
+from flask import Flask, render_template, request, send_file
 import pdfplumber
+from google.cloud import texttospeech
+from datetime import datetime
 
 app = Flask(__name__)
 
-AUDIO_DIR = os.path.join(os.path.dirname(__file__), "audio")
-os.makedirs(AUDIO_DIR, exist_ok=True)
+# Optional: max chars to send to TTS in one request (safety to avoid very large requests)
+MAX_TTS_CHARS = 30000  # adjust if needed; Google quotas apply
+
+# Initialize Google TTS client (requires GOOGLE_APPLICATION_CREDENTIALS env var)
+tts_client = texttospeech.TextToSpeechClient()
+
+def extract_text_from_pdf_bytes(pdf_bytes):
+    """Extract text from uploaded PDF bytes using pdfplumber (returns string)."""
+    text = ""
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    return text
+
+def synthesize_mp3_from_text(text, voice_name="en-US-Wavenet-D", speaking_rate=1.0):
+    """
+    Uses Google Cloud Text-to-Speech to synthesize MP3 bytes from text.
+    Returns bytes (MP3).
+    """
+    if not text:
+        raise ValueError("Empty text for synthesis.")
+
+    if len(text) > MAX_TTS_CHARS:
+        # Defensive: refuse huge requests to keep memory & quotas sane.
+        raise ValueError(f"Text too long for single TTS request ({len(text)} chars). "
+                         "Please upload a smaller PDF or split it.")
+
+    # Build the input
+    synthesis_input = texttospeech.SynthesisInput(text=text)
+
+    # Select the voice
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US",
+        name=voice_name
+    )
+
+    # Select audio config (MP3)
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3,
+        speaking_rate=speaking_rate
+    )
+
+    # Perform the request
+    response = tts_client.synthesize_speech(
+        input=synthesis_input,
+        voice=voice,
+        audio_config=audio_config
+    )
+
+    return response.audio_content  # bytes
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    error = None
     if request.method == "POST":
-        if "pdf" not in request.files:
-            return "No file uploaded", 400
-        
-        pdf_file = request.files["pdf"]
-        text_content = ""
+        uploaded = request.files.get("pdf_file")
+        if not uploaded or uploaded.filename == "":
+            error = "Please upload a PDF file."
+            return render_template("index.html", error=error)
 
-        with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
-                text_content += page.extract_text() or ""
+        if not uploaded.filename.lower().endswith(".pdf"):
+            error = "Only PDF files are allowed."
+            return render_template("index.html", error=error)
 
-        if not text_content.strip():
-            return "No text found in PDF", 400
+        try:
+            pdf_bytes = uploaded.read()
+            text = extract_text_from_pdf_bytes(pdf_bytes)
+            if not text.strip():
+                error = "No readable text found in the PDF (maybe it's scanned images)."
+                return render_template("index.html", error=error)
 
-        # Generate unique audio file path
-        audio_filename = f"{uuid.uuid4()}.mp3"
-        audio_path = os.path.join(AUDIO_DIR, audio_filename)
+            # optional: truncate / check length
+            if len(text) > MAX_TTS_CHARS:
+                # Option: send first N chars and warn, or return error to user.
+                error = ("PDF text is very large. Please upload a smaller file or split the PDF. "
+                         f"Extracted length: {len(text)} chars. Limit: {MAX_TTS_CHARS} chars.")
+                return render_template("index.html", error=error)
 
-        # Convert text to audio
-        engine = pyttsx3.init()
-        engine.save_to_file(text_content, audio_path)
-        engine.runAndWait()
+            # Synthesize audio bytes (MP3)
+            audio_bytes = synthesize_mp3_from_text(text)
 
-        # Ensure file exists before sending
-        if not os.path.exists(audio_path):
-            return "Audio generation failed", 500
+            # Stream the bytes back as an MP3 file (no disk usage)
+            audio_stream = io.BytesIO(audio_bytes)
+            audio_stream.seek(0)
+            download_name = f"pdf_audio_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.mp3"
+            return send_file(
+                audio_stream,
+                as_attachment=True,
+                download_name=download_name,
+                mimetype="audio/mpeg"
+            )
 
-        return send_file(audio_path, as_attachment=True, download_name="output.mp3")
+        except Exception as e:
+            # For production you might log the traceback
+            error = f"Conversion failed: {str(e)}"
+            return render_template("index.html", error=error)
 
-    return render_template("index.html")
+    return render_template("index.html", error=error)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # port for local testing
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

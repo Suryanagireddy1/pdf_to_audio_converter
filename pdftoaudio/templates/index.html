@@ -2,39 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta name="google-site-verification" content="GczXDgE04za6Ur-WcnDDVPGxDcJ9gSUD-Kg89RbjjpM" />
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>PDF to Audio Converter | Free Online Tool</title>
-    <meta name="description" content="Convert PDF to audio (MP3) instantly online for free. Listen to your PDFs in seconds without installing software. Works on all devices.">
-    <meta name="keywords" content="PDF to Audio, Convert PDF to MP3, Free PDF Reader, PDF to Speech, Text to Speech PDF, Audiobook Generator">
-    <meta name="robots" content="index, follow">
-
+    <meta name="description" content="Convert PDF to audio (MP3) instantly online for free.">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container animate__animated animate__fadeInDown">
-        <h1 class="animate__animated animate__pulse animate__infinite">📄 PDF to 🎵 Audio Converter</h1>
+    <div class="container">
+        <h1>📄 PDF → 🎧 MP3</h1>
 
         {% if error %}
-            <p class="error animate__animated animate__shakeX">{{ error }}</p>
+            <p class="error">{{ error }}</p>
         {% endif %}
 
-        <form action="/" method="POST" enctype="multipart/form-data" class="upload-form">
-            <div class="upload-box animate__animated animate__zoomIn" id="drop-area">
-                <input type="file" name="pdf_file" accept=".pdf" id="fileInput" hidden required>
-                <label for="fileInput" class="upload-label">
-                    📂 Click or Drag & Drop your PDF here
-                </label>
+        <form action="/" method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-box" id="drop-area">
+                <input type="file" name="pdf_file" id="fileInput" accept="application/pdf" hidden required>
+                <label for="fileInput" class="upload-label">📂 Click or Drag & Drop your PDF here</label>
+                <p class="hint">Works on phones, tablets & desktops.</p>
             </div>
-            <button type="submit" id="convertBtn" class="btn animate__animated animate__heartBeat animate__infinite" disabled>
-                Convert & Download
-            </button>
+
+            <button type="submit" id="convertBtn" class="btn" disabled>Convert & Download</button>
         </form>
+
+        <footer>
+            <small>Tip: scanned PDFs (images) won't extract text. Use OCR first.</small>
+        </footer>
     </div>
 
     <script>
@@ -42,24 +35,25 @@
         const fileInput = document.getElementById('fileInput');
         const convertBtn = document.getElementById('convertBtn');
 
+        // Toggle enable when file selected
         fileInput.addEventListener('change', () => {
             convertBtn.disabled = fileInput.files.length === 0;
         });
 
+        // Drag/drop UX
         dropArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropArea.classList.add('drag-over');
         });
-
-        dropArea.addEventListener('dragleave', () => {
-            dropArea.classList.remove('drag-over');
-        });
-
+        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
         dropArea.addEventListener('drop', (e) => {
             e.preventDefault();
             dropArea.classList.remove('drag-over');
-            fileInput.files = e.dataTransfer.files;
-            convertBtn.disabled = fileInput.files.length === 0;
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                fileInput.files = dt.files;
+                convertBtn.disabled = fileInput.files.length === 0;
+            }
         });
     </script>
 </body>
