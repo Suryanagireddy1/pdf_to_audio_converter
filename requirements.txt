@@ -6,3 +6,4 @@ gTTS
 gunicorn
 pydub
 werkzeug
+google-cloud-texttospeech
